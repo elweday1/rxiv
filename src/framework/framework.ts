@@ -1,68 +1,58 @@
-import { Subscription, isObservable, Observable } from 'rxjs';
-
-// --- Type Definitions and Helpers ---
-interface ComponentThunk {
-  _isComponentThunk: true;
-  tag: (props: any) => any;
-  props: { [key: string]: any };
-}
-export type DOMNode = Node;
-export type RxNode = DOMNode | Observable<any> | string | number | boolean | null | undefined | RxNode[];
-
-
-
-
-// A helper type to make props reactive.
-type RxProp<T> = T | Observable<T>;
+import { Subscription, fromEvent, isObservable } from 'rxjs';
+import { ComponentThunk, RxNode } from './types';
+import { BaseControl, EventsControl, ValueControl } from './core/control';
 
 /**
- * Our helper type that converts a DOM element's properties into JSX-compatible props,
- * adding reactivity where appropriate.
+ * The implementation that connects a control object to a real DOM element.
+ * It reads the control's definition and attaches all necessary subscriptions and listeners.
+ * @param element The real HTMLElement that was just created.
+ * @param control The control object passed to the `control` prop in JSX.
  */
-// 3. The main helper type for element props, now corrected.
-type ElementProps<T> = {
-  // Map all properties from the DOM element's interface (e.g., HTMLButtonElement)
-  // BUT explicitly Omit the conflicting 'children' property.
-  [K in keyof Omit<T, 'children'>]?: T[K] extends ((...args: any[]) => any)
-    ? T[K] // Keep event handlers (e.g., onclick) as-is.
-    : RxProp<T[K]>; // Make all other properties (e.g., id, disabled) reactive.
-} & {
-  class?: RxProp<string>;
-  // Explicitly define the type of the `children` prop our framework accepts.
-  children?: RxNode;
-};
+function applyControl(element: HTMLElement, control: BaseControl) {
+  // 1. Element Reference (The base feature of all controls)
+  // This makes the DOM element available on the control's `element$` stream.
+  control.element$.next(element);
+  // We also store a reference on the element itself for the cleanup process.
+  (element as any)._ref = control.element$;
 
+  // Cast to specific control types to check for features.
+  const valueCtrl = control as ValueControl<any>;
+  const eventsCtrl = control as EventsControl<any>;
 
+  // 2. Two-Way Value Binding (if the control has this feature)
+  if (valueCtrl.value$ && valueCtrl._valueDef) {
+    const { prop: valueProp, event: eventName } = valueCtrl._valueDef;
 
-// This is where we define the global JSX namespace that TypeScript uses.
-declare global {
-  namespace JSX {
-    /**
-     * This is the magic.
-     * We use a mapped type to iterate over every tag name in TypeScript's
-     * built-in `HTMLElementTagNameMap`. For each tag, it automatically
-     * creates the correct props type by applying our `ElementProps` helper.
-     *
-     * This single type definition provides full, type-safe support for all
-     * standard HTML elements without needing to list them manually.
-     */
-    type Element = RxNode;
-
-    // This tells TSX which prop to use for children
-    interface ElementChildrenAttribute {
-      children: {};
+    // If the control starts with no value, read it from the DOM attribute.
+    if (valueCtrl.value$.getValue() === undefined) {
+      valueCtrl.setValue((element as any)[valueProp]);
     }
 
-    
-    type IntrinsicElements = {
-      [K in keyof HTMLElementTagNameMap]: ElementProps<HTMLElementTagNameMap[K]>;
-    };
+    // STATE -> DOM: Subscribe to the control's value and update the element's property.
+    const valueToDomSub = valueCtrl.value$.subscribe((value: any) => {
+      updateProp(element, valueProp, value);
+    });
+    addSubscription(element, valueToDomSub);
 
+    // DOM -> STATE: Listen for the specified DOM event and update the control's value.
+    const domToValueSub = fromEvent(element, eventName).subscribe((event: Event) => {
+      valueCtrl.setValue((event.target as any)[valueProp]);
+    });
+    addSubscription(element, domToValueSub);
   }
 
-  // This is the other global type our framework needs to track subscriptions.
-  interface Node {
-    _subscriptions?: Subscription[];
+  // 3. Event Streams (if the control has this feature)
+  if (eventsCtrl.events && eventsCtrl._eventsDef) {
+    for (const eventName of eventsCtrl._eventsDef) {
+      const eventSubject = eventsCtrl.events[eventName];
+      if (eventSubject) {
+        // For each defined event, listen on the element and pipe it into the control's subject.
+        const eventSub = fromEvent(element, eventName).subscribe(e => {
+          eventSubject.next(e);
+        });
+        addSubscription(element, eventSub);
+      }
+    }
   }
 }
 
@@ -100,16 +90,17 @@ function addSubscription(element: Node, subscription: Subscription) {
 // --- The Core Reactive Engine ---
 function resolveChild(child: any): Node {
   if (typeof child === 'function') {
-        // We wrap it in a "thunk" and resolve it, reusing our existing logic.
-        const thunk = { _isComponentThunk: true, tag: child, props: {} };
-        return resolveChild(thunk);
+    // We wrap it in a "thunk" and resolve it, reusing our existing logic.
+    const thunk = { _isComponentThunk: true, tag: child, props: {} };
+    return resolveChild(thunk);
   }
-    
+
   if (child && child._isComponentThunk) {
     const { tag, props } = child as ComponentThunk;
     const componentResult = tag(props);
     return resolveChild(componentResult);
   }
+
   if (child instanceof Node) return child;
   if (isObservable(child)) {
     const placeholder = document.createElement('span');
@@ -129,7 +120,7 @@ function resolveChild(child: any): Node {
   if (child === false || child === null || child === undefined) {
     return document.createDocumentFragment();
   }
-    if (typeof child === 'function') {
+  if (typeof child === 'function') {
     // We wrap it in a "thunk" and resolve it, reusing our existing logic.
     const thunk = { _isComponentThunk: true, tag: child, props: {} };
     return resolveChild(thunk);
@@ -152,8 +143,10 @@ export function rxCreateElement(
     return { _isComponentThunk: true, tag, props: { ...props, children } };
   }
   // Note: The `if (tag === Fragment)` check is no longer needed here.
-
   const element = document.createElement(tag);
+  if (props?.control) {
+    applyControl(element, props.control);
+  }
   for (const key in props) {
     if (!props.hasOwnProperty(key)) continue;
 

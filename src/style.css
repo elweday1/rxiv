@@ -94,3 +94,8 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+.controls { display: flex; align-items: center; gap: 24px; margin-bottom: 16px; flex-wrap: wrap; }
+label { display: flex; flex-direction: column; }
+canvas { border: 2px solid #444; cursor: crosshair; touch-action: none; }
+button { padding: 8px 16px; }

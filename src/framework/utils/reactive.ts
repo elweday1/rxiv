@@ -1,29 +1,11 @@
 // src/deepUnwrap.ts
 import { Observable, map, distinctUntilChanged, shareReplay } from 'rxjs';
-
-
-// A helper type to identify primitives, which should not be recursively unwrapped.
-type Primitives = string | number | boolean | Date | null | undefined | Function | Array<any>;
-
-/**
- * The main recursive type. It transforms an object type `T` into the shape
- * created by our `deepUnwrap` function.
- */
-export type DeepUnwrapped<T> =
-  // It's an intersection of two things:
-  // 1. The nested, unwrappable objects.
-  {
-    [K in keyof T as T[K] extends Primitives ? never : K]: DeepUnwrapped<T[K]>;
-  } &
-  // 2. The `$` suffixed observables for every property.
-  {
-    [K in keyof T as `${string & K}$`]: Observable<T[K]>;
-  };
+import { DeepUnwrapped } from '../types';
 
 // Cache for the top-level proxies to avoid re-creating them for the same source observable.
 const proxyCache = new WeakMap<Observable<any>, any>();
 
-export function unwrap<T extends object>(source$: Observable<T>): DeepUnwrapped<T> {
+export function reactive<T extends object>(source$: Observable<T>): DeepUnwrapped<T> {
   // If we've already created a proxy for this exact observable, return it.
   if (proxyCache.has(source$)) {
     return proxyCache.get(source$);
@@ -70,7 +52,7 @@ export function unwrap<T extends object>(source$: Observable<T>): DeepUnwrapped<
 
         // Then, recursively call deepUnwrap on this new observable.
         // This will return a new proxy for the nested level, allowing infinite chaining.
-        const nestedProxy = unwrap(nestedSource$ as Observable<any>);
+        const nestedProxy = reactive(nestedSource$ as Observable<any>);
 
         propCache.set(prop, nestedProxy);
         return nestedProxy;
