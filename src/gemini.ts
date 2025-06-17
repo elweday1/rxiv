@@ -1,4 +1,3 @@
-import { catchError, from, map, of, startWith } from "rxjs";
 
 export async function callGeminiVisionAPI(base64ImageData: string) {
     console.log("Calling Gemini Vision API");

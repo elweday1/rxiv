@@ -1,5 +1,5 @@
-import { BehaviorSubject, Observable, Subject, Subscription, merge } from 'rxjs';
-import { map, scan, shareReplay, startWith, withLatestFrom } from 'rxjs/operators';
+import { BehaviorSubject, Observable, Subject, merge } from 'rxjs';
+import { map, scan } from 'rxjs/operators';
 import { reactive } from './reactive';
 import { DeepUnwrapped } from '../types';
 

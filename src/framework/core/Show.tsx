@@ -1,6 +1,8 @@
 // src/Show.ts
 import { Observable, map } from 'rxjs';
-import { rxCreateElement, rxFragment, RxNode } from './framework';
+import { rxCreateElement, rxFragment } from '../framework';
+import { RxNode } from '../types';
+
 
 interface ShowProps {
   when: Observable<boolean>;
