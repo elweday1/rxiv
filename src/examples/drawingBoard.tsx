@@ -14,19 +14,20 @@ const canvasContext$ = canvasControl.element$.pipe(
 );
 
 const startDrawing$ = merge(
-  canvasControl.events.mousedown.pipe(map(event => ({ x: event.offsetX, y: event.offsetY }))),
-  canvasControl.events.touchstart.pipe(map(event => ({ x: event.touches[0].clientX, y: event.touches[0].clientY }))),
-)
+  canvasControl.events.mousedown$.pipe(map(event => ({ x: event.offsetX, y: event.offsetY }))),
+  canvasControl.events.touchstart$.pipe(map(event => ({ x: event.touches[0].clientX, y: event.touches[0].clientY }))),
+);
+
 const stopDrawing$ = merge(
-  canvasControl.events.mouseup,
-  canvasControl.events.mouseleave,
-  canvasControl.events.touchend,
-  canvasControl.events.touchcancel,
+  canvasControl.events.mouseup$,
+  canvasControl.events.mouseleave$,
+  canvasControl.events.touchend$,
+  canvasControl.events.touchcancel$,
 );
 const moveDrawing$ = merge(
-  canvasControl.events.mousemove.pipe(map(event => ({ x: event.offsetX, y: event.offsetY }))),
-  canvasControl.events.touchmove.pipe(map(event => ({ x: event.touches[0].clientX, y: event.touches[0].clientY }))),
-);
+  canvasControl.events.mousemove$.pipe(map(event => ({ x: event.offsetX, y: event.offsetY }))),
+  canvasControl.events.touchmove$.pipe(map(event => ({ x: event.touches[0].clientX, y: event.touches[0].clientY }))),
+)
 
 const imageDescription$ = startDrawing$.pipe(
   switchMap(downEvent => moveDrawing$.pipe(

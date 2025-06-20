@@ -44,7 +44,9 @@ function applyControl(element: HTMLElement, control: BaseControl) {
   // 3. Event Streams (if the control has this feature)
   if (eventsCtrl.events && eventsCtrl._eventsDef) {
     for (const eventName of eventsCtrl._eventsDef) {
-      const eventSubject = eventsCtrl.events[eventName];
+      // TypeScript fix: use 'as keyof typeof eventsCtrl.events' to index safely
+      const eventKey = (eventName + "$") as keyof typeof eventsCtrl.events;
+      const eventSubject = eventsCtrl.events[eventKey];
       if (eventSubject) {
         // For each defined event, listen on the element and pipe it into the control's subject.
         const eventSub = fromEvent(element, eventName).subscribe(e => {

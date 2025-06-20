@@ -15,7 +15,7 @@ export type EventsDef = Readonly<(keyof HTMLElementEventMap)[]>;
 
 /** A Mapped Type that creates a correctly typed object of event Subjects. */
 export type EventSubjects<E extends EventsDef> = {
-  [K in E[number]]: Subject<HTMLElementEventMap[K]>;
+  [K in E[number] as `${string & K}$`]: Subject<HTMLElementEventMap[K]>;
 };
 /** The base interface that all controls share. */
 export interface BaseControl {
@@ -137,9 +137,9 @@ export function control(config: ControlConfig<any, any> = {}): any {
   if (config.events) {
     control.events = {};
     for (const eventName of config.events) {
-      control.events[eventName] = new Subject<Event>();
+      control.events[`${eventName}$`] = new Subject<Event>();
     }
-    control._eventsDef = config.events;
+    control._eventsDef = [...config.events] as EventsDef;
   }
 
   return control;
