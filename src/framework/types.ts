@@ -10,7 +10,7 @@ export type DeepUnwrapped<T> =
   // It's an intersection of two things:
   // 1. The nested, unwrappable objects.
   {
-    [K in keyof T as T[K] extends RxNode ? never : K]: DeepUnwrapped<T[K]>;
+    [K in keyof T as T[K] extends RxNode ? never : K]: T[K] extends Record<string, any> ? DeepUnwrapped<T[K]> : T[K];
   } &
   // 2. The `$` suffixed observables for every property.
   {
