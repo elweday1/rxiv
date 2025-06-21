@@ -1,64 +1,74 @@
-import { BehaviorSubject, Observable, Subject, merge } from 'rxjs';
-import { map, scan } from 'rxjs/operators';
+import { Observable, Subject, merge } from 'rxjs';
+import { map, scan, startWith } from 'rxjs/operators';
 import { reactive } from './reactive';
 import { DeepUnwrapped } from '../types';
 
-type StateUpdate<TState> = Partial<TState> | ((state: TState) => TState);
-
-type ActionsDefinition<TState, TActions> = (
-  // `dispatch` is the new `set`. It sends an update into the stream.
-  dispatch: (update: StateUpdate<TState>) => void,
-  // `on` now takes a reducer function.
-  on: <T>(
-    source$: Observable<T>,
-    reducer: (state: TState, value: T) => TState
-  ) => void
-) => TActions;
-
-
-export function createStore<TState extends object, TActions extends object>(
-  initialState: TState,
-  define: ActionsDefinition<TState, TActions>
+// --- Event binding helper ---
+export function on<TState, T>(
+  source$: Observable<T>,
+  reducer: (state: TState, value: T) => Partial<TState> | void
 ) {
-  // --- Internal Subjects and Streams ---
-  const state$ = new BehaviorSubject<TState>(initialState);
-  const actionSubject = new Subject<StateUpdate<TState>>();
-  const externalUpdateStreams: Observable<StateUpdate<TState>>[] = [];
+  return { source$, reducer };
+}
 
-  // --- Utilities passed to the definition function ---
-  const dispatch = (update: StateUpdate<TState>) => {
-    actionSubject.next(update);
-  };
+type ExtractActionPayload<T extends (state: any, payload?: any) => any> = Parameters<T>[1]
 
-  const on = <T>(
-    source$: Observable<T>,
-    reducer: (state: TState, value: T) => TState
-  ) => {
-    // We convert the external stream into a stream of state-updating functions.
-    const updateStream = source$.pipe(
-      map(value => (state: TState) => reducer(state, value))
+export function store<
+TState extends object,
+TActions extends Record<string, (state: TState, payload?: any) => Partial<TState> | void>,
+TReturnedActions = {[K in keyof TActions]: ExtractActionPayload<TActions[K]>}
+>(
+  initialState: TState,
+  actionsObj: TActions,
+  ...eventBindings: Array<ReturnType<typeof on<TState, any>>>
+): {context: DeepUnwrapped<TState>} & TReturnedActions {
+  const actionSubject = new Subject<(state: TState) => TState>();
+  const externalUpdateStreams: Observable<(state: TState) => TState>[] = [];
+
+  // --- Actions dispatcher ---
+  const actions = {} as any;
+    for (const key in actionsObj) {
+      actions[key] = (payload?: any) => {
+        actionSubject.next((state: TState) => ({ ...state, ...actionsObj[key](state, payload) }));
+      };
+  }
+
+  // --- Event bindings ---
+  for (const binding of eventBindings) {
+    const updateStream = binding.source$.pipe(
+      map((value: any) => (state: TState) => {
+        const result = binding.reducer(state, value);
+        if (!result) return state;
+        return { ...state, ...result };
+      })
     );
     externalUpdateStreams.push(updateStream);
-  };
-
-  // --- Create the public API ---
-  const actions = define(dispatch, on);
-  const state = reactive(state$) as DeepUnwrapped<TState>;
+  }
 
   // --- The Single State Stream ---
-  // Merge all sources of state change into one stream.
-  merge(actionSubject, ...externalUpdateStreams).pipe(
-    // `scan` is like `reduce` for observables. It accumulates state.
-    scan((currentState, updateFn) => {
-      if (typeof updateFn === 'function') {
-        return (updateFn as (state: TState) => TState)(currentState);
-      }
-      return { ...currentState, ...updateFn };
-    }, initialState)
-  ).subscribe(newState => {
-    // There is now only ONE subscription that updates the state.
-    state$.next(newState);
-  });
-
-  return { state, ...actions };
+  const state$ = merge(actionSubject, ...externalUpdateStreams).pipe(
+    scan((currentState, updateFn) => updateFn(currentState), initialState),
+    startWith(initialState)
+  )
+  
+  const context = reactive(state$);
+  return { context, ...actions };
 }
+
+export function typeTestStore<
+TState,
+TActions extends Record<string, (state: TState, payload?: any) => Partial<TState> | void>,
+TReturnedActions = {[K in keyof TActions]: ExtractActionPayload<TActions[K]>}
+>(
+  initialState: TState,
+  actionsObj: TActions
+  ,
+  ...eventBindings: Array<ReturnType<typeof on<TState, any>>>
+): TReturnedActions {
+  return {} as TReturnedActions
+}
+
+typeTestStore({count: 0}, {
+  addOne: ({count})=>{}
+})
+
