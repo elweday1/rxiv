@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    "./jsx-runtime": "./src/framework/jsx-runtime.js"
+    "./jsx-runtime": "./src/framework/jsx-runtime.ts"
   },
   "scripts": {
     "dev": "vite",

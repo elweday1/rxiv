@@ -1,5 +1,5 @@
-import { rxRender, rxCreateElement } from './framework';
-import { DrawingBoard } from './examples/DrawingBoard/drawingBoard';
+import { App } from './examples/Simple';
 import { Todos } from './examples/Todos/todos';
+import { renderDom } from './framework';
 
-rxRender(<Todos />, document.getElementById('app')!);
+renderDom(<App />, document.getElementById('app')!);
