@@ -1,6 +1,4 @@
-// src/Show.ts
 import { Observable, map } from 'rxjs';
-import { rxCreateElement, rxFragment } from '../framework';
 import { RxNode } from '../types';
 
 
@@ -8,6 +6,7 @@ interface ShowProps {
   when: Observable<boolean>;
   children: RxNode;
   fallback?: RxNode;
+  keepRendered?: boolean
 }
 
 export function Show(props: ShowProps) {

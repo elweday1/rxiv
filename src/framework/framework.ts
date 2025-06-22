@@ -132,11 +132,11 @@ function resolveChild(child: any): Node {
 }
 
 
-export function rxFragment(props: { children: any }) {
+export function fragmentComponent(props: { children: any }) {
   return props.children;
 }
 
-export function rxCreateElement(
+export function createElement(
   tag: any,
   props: { [key: string]: any } | null,
   ...children: any[]
@@ -172,7 +172,7 @@ export function rxCreateElement(
 }
 
 
-export function rxRender(node: RxNode, container: HTMLElement) {
+export function renderDom(node: RxNode, container: HTMLElement) {
   const rootNode = resolveChild(node);
   cleanup(container);
   container.replaceChildren(rootNode);

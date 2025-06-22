@@ -1,4 +1,3 @@
-// src/createResource.ts
 import {
     BehaviorSubject,
     Subject,
@@ -14,7 +13,6 @@ import {
     startWith,
     distinctUntilChanged,
 } from 'rxjs';
-// --- Add this new Resource interface ---
 
 interface SuccessResource<T> extends Observable<T> {
     data: BehaviorSubject<T>;

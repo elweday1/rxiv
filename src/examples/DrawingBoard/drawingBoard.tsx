@@ -1,5 +1,4 @@
-import { rxCreateElement } from '../framework';
-import { control } from '../framework';
+import { control } from '../../framework';
 import { callGeminiVisionAPI } from '../gemini';
 import { debounceTime, filter, map, merge, pairwise, startWith, switchMap, takeUntil, tap, withLatestFrom, of, catchError, from } from 'rxjs';
 import '../style.css';

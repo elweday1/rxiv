@@ -1,5 +1,4 @@
 import { Observable, map } from 'rxjs';
-import { rxFragment, rxCreateElement } from '../framework';
 import { RxNode } from '../types';
 
 type RenderFn<T> = (item: T, index: number) => RxNode;
@@ -7,7 +6,7 @@ interface EachProps<T> {
   items$: Observable<T[]>;
   children: RenderFn<T>;
   fallback?: RxNode;
-  key?: (item: T) => string;
+  key?: (item: T) => string | number;
 }
 
 export function Each<T>(props: EachProps<T>) {

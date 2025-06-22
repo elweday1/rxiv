@@ -3,10 +3,9 @@ import { map, scan, startWith } from 'rxjs/operators';
 import { reactive } from './reactive';
 import { DeepUnwrapped } from '../types';
 
-// --- Event binding helper ---
-export function on<TState, T>(
+export function on<TState, T, X>(
   source$: Observable<T>,
-  reducer: (state: TState, value: T) => Partial<TState> | void
+  reducer: (state: TState, value: T) => (Partial<TState> & X) | void
 ) {
   return { source$, reducer };
 }
@@ -20,12 +19,11 @@ TReturnedActions = {[K in keyof TActions]: ExtractActionPayload<TActions[K]>}
 >(
   initialState: TState,
   actionsObj: TActions,
-  ...eventBindings: Array<ReturnType<typeof on<TState, any>>>
+  ...eventBindings: Array<ReturnType<typeof on<TState, any, any>>>
 ): {context: DeepUnwrapped<TState>} & TReturnedActions {
   const actionSubject = new Subject<(state: TState) => TState>();
   const externalUpdateStreams: Observable<(state: TState) => TState>[] = [];
 
-  // --- Actions dispatcher ---
   const actions = {} as any;
     for (const key in actionsObj) {
       actions[key] = (payload?: any) => {
@@ -33,7 +31,6 @@ TReturnedActions = {[K in keyof TActions]: ExtractActionPayload<TActions[K]>}
       };
   }
 
-  // --- Event bindings ---
   for (const binding of eventBindings) {
     const updateStream = binding.source$.pipe(
       map((value: any) => (state: TState) => {
@@ -45,7 +42,6 @@ TReturnedActions = {[K in keyof TActions]: ExtractActionPayload<TActions[K]>}
     externalUpdateStreams.push(updateStream);
   }
 
-  // --- The Single State Stream ---
   const state$ = merge(actionSubject, ...externalUpdateStreams).pipe(
     scan((currentState, updateFn) => updateFn(currentState), initialState),
     startWith(initialState)
@@ -54,21 +50,4 @@ TReturnedActions = {[K in keyof TActions]: ExtractActionPayload<TActions[K]>}
   const context = reactive(state$);
   return { context, ...actions };
 }
-
-export function typeTestStore<
-TState,
-TActions extends Record<string, (state: TState, payload?: any) => Partial<TState> | void>,
-TReturnedActions = {[K in keyof TActions]: ExtractActionPayload<TActions[K]>}
->(
-  initialState: TState,
-  actionsObj: TActions
-  ,
-  ...eventBindings: Array<ReturnType<typeof on<TState, any>>>
-): TReturnedActions {
-  return {} as TReturnedActions
-}
-
-typeTestStore({count: 0}, {
-  addOne: ({count})=>{}
-})
 

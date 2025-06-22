@@ -24,7 +24,7 @@ export interface BaseControl {
 
 /** The interface for a control that manages a value (two-way binding). */
 export interface ValueControl<T> extends BaseControl {
-  value$: BehaviorSubject<T | undefined>;
+  value$: BehaviorSubject<T>;
   setValue: (value: T) => void;
   _valueDef: { prop: string; event: string };
 }
@@ -35,9 +35,6 @@ export interface EventsControl<E extends EventsDef> extends BaseControl {
   _eventsDef: E;
 }
 
-
-// --- Type Definitions for the Control System ---
-
 /** The base interface that all controls share, providing the element reference. */
 export interface BaseControl {
   _isControl: true;
@@ -46,12 +43,11 @@ export interface BaseControl {
 
 /** The interface for the value-binding part of a control. */
 export interface ValuePart<T> {
-  value$: BehaviorSubject<T | undefined>;
+  value$: BehaviorSubject<T>;
   setValue: (value: T) => void;
   _valueDef: { prop: string; event: string };
 }
 
-/** The interface for the event-streaming part of a control. */
 export interface EventsPart<E extends EventsDef> {
   events: EventSubjects<E>;
   _eventsDef: E;
@@ -62,40 +58,13 @@ interface ControlConfig<TValue, TEvents extends EventsDef> {
   events?: TEvents;
 }
 
-// --- Type Definitions for the Control System ---
-
-/** The base interface that all controls share. */
-export interface BaseControl {
-  _isControl: true;
-  element$: BehaviorSubject<HTMLElement | null>;
-}
-
-/** The interface for the value-binding part of a control. */
-export interface ValuePart<T> {
-  value$: BehaviorSubject<T | undefined>;
-  setValue: (value: T) => void;
-  _valueDef: { prop: string; event: string };
-}
-
-/** The interface for the event-streaming part of a control. */
-export interface EventsPart<E extends EventsDef> {
-  events: EventSubjects<E>;
-  _eventsDef: E;
-}
-
-/** The final Control type is a union of all possible valid shapes. */
 export type Control<T, E extends EventsDef> = BaseControl & Partial<ValuePart<T> & EventsPart<E>>;
 
-/** The configuration object for createControl. */
 interface ControlConfig<TValue, TEvents extends EventsDef> {
   value?: { prop: string; event: string; initialValue?: TValue };
   events?: TEvents;
 }
 
-
-// --- The `createControl` Function with Overloads ---
-
-// Overload 1: For creating a control with both value and events.
 export function control<TValue, const TEvents extends EventsDef>(
   config: {
     value: { prop: string; event: string; initialValue?: TValue },
@@ -103,17 +72,14 @@ export function control<TValue, const TEvents extends EventsDef>(
   }
 ): BaseControl & ValuePart<TValue> & EventsPart<TEvents>;
 
-// Overload 2: For creating a control with only a value.
 export function control<TValue>(
   config: { value: { prop: string; event: string; initialValue?: TValue } }
 ): BaseControl & ValuePart<TValue>;
 
-// Overload 3: For creating a control with only events.
 export function control<const TEvents extends EventsDef>(
   config: { events: TEvents }
 ): BaseControl & EventsPart<TEvents>;
 
-// Overload 4: For creating a simple ref-only control.
 export function control(): BaseControl;
 
 /**
