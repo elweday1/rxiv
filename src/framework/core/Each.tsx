@@ -1,19 +1,28 @@
-import { Observable, map } from 'rxjs';
-import { RxNode } from '../types';
+import { RxNode } from 'framework/types';
+import { Observable } from 'rxjs';
 
+// Type definitions (can be in a shared types file)
 type RenderFn<T> = (item: T, index: number) => RxNode;
+
 interface EachProps<T> {
   items$: Observable<T[]>;
-  children: RenderFn<T>;
+  children: RenderFn<T> | [RenderFn<T>];
   fallback?: RxNode;
-  key?: (item: T) => string | number;
+  keyFn: (item: T, index: number) => string | number; // Key is now mandatory for <Each>
 }
 
+/**
+ * A component for efficiently rendering lists using keyed reconciliation.
+ */
 export function Each<T>(props: EachProps<T>) {
-  const { items$, children } = props;
-  const renderFn = (children as unknown as RenderFn<T>[])[0];
-  const listContent$ = items$.pipe(
-    map(items => items.length > 0 ? items.map(renderFn) : props.fallback)
-  );
-  return <>{listContent$}</>;
+  const { items$, children, keyFn, fallback } = props;
+  const renderFn = Array.isArray(children) ? children[0] : children;
+
+  return {
+    _isKeyedList: true,
+    items$,
+    keyFn,
+    renderFn,
+    fallback,
+  } as unknown as RxNode;
 }

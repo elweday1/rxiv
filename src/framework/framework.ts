@@ -97,6 +97,67 @@ function resolveChild(child: any): Node {
     return resolveChild(thunk);
   }
 
+  if (child && child._isKeyedList) {
+    const { items$, keyFn, renderFn, fallback } = child;
+
+    const placeholder = document.createElement('span');
+    // We add a special property to DOM childs to track their key.
+    // This allows us to read the state directly from the DOM.
+    const KEY_PROP = '_keyedListNodeKey';
+
+    const sub = items$.subscribe((items: any[]) => {
+      // --- Handle Fallback Case ---
+      if (!items || items.length === 0) {
+        // Cleanup all existing nodes before showing the fallback.
+        placeholder.childNodes.forEach(cleanup);
+        placeholder.replaceChildren(resolveChild(fallback));
+        return;
+      }
+
+      const newChildren: Node[] = [];
+      const newKeys = new Set<any>();
+      const oldNodesByKey = new Map<any, Node>();
+      
+      // Read the current state directly from the DOM.
+      placeholder.childNodes.forEach(node => {
+        const key = (node as any)[KEY_PROP];
+        if (key !== undefined) {
+          oldNodesByKey.set(key, node);
+        }
+      });
+      
+      // 1. Build the new list of children.
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const key = keyFn(item, i);
+        newKeys.add(key);
+
+        let nodeToRender = oldNodesByKey.get(key);
+        if (!nodeToRender) {
+          // This is a new item, so we render a new DOM node for it.
+          nodeToRender = resolveChild(renderFn(item, i));
+          // Attach the key directly to the node so we can find it next time.
+          (nodeToRender as any)[KEY_PROP] = key;
+        }
+        newChildren.push(nodeToRender);
+      }
+
+      // 2. Cleanup: Any nodes in our old map whose keys are not in the
+      // new set must be removed and cleaned up.
+      for (const [key, nodeToRemove] of oldNodesByKey.entries()) {
+        if (!newKeys.has(key)) {
+          cleanup(nodeToRemove);
+        }
+      }
+
+      // 3. Render: Use the efficient `replaceChildren` to update the DOM.
+      // This handles additions, removals, and re-ordering correctly.
+      placeholder.replaceChildren(...newChildren);
+    });
+
+    addSubscription(placeholder, sub);
+    return placeholder;
+  }
   if (child && child._isComponentThunk) {
     const { tag, props } = child as ComponentThunk;
     const componentResult = tag(props);
@@ -175,5 +236,6 @@ export function createElement(
 export function renderDom(node: RxNode, container: HTMLElement) {
   const rootNode = resolveChild(node);
   cleanup(container);
+  container.childNodes.forEach(cleanup);
   container.replaceChildren(rootNode);
 }

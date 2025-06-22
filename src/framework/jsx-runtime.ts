@@ -4,7 +4,7 @@ import { BaseControl } from "./core/control";
 import { createElement, fragmentComponent } from "./framework";
 
 export type ElementProps<T> = {
-    [K in keyof Omit<T, 'children' | 'style'>]?: T[K] extends Function
+    [K in keyof Omit<T, 'children' | 'style' | 'key'>]?: T[K] extends Function
     ? T[K]
     : RxProp<T[K]>;
 } & {

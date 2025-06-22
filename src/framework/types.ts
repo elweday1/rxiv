@@ -1,6 +1,4 @@
-import { Observable, Subscription } from "rxjs";
-import { BaseControl } from "./core/control";
-
+import { Observable } from "rxjs";
 
 /**
  * The main recursive type. It transforms an object type `T` into the shape
@@ -22,8 +20,7 @@ export interface ComponentThunk {
   tag: (props: any) => any;
   props: { [key: string]: any };
 }
-export type DOMNode = Node;
-export type RxNode = DOMNode | Observable<any> | string | number | boolean | null | undefined | RxNode[];
+export type RxNode = Node | Observable<any> | string | number | boolean | null | undefined | RxNode[];
 
 // A helper type to make props reactive.
 export type RxProp<T> = T | Observable<T>;
