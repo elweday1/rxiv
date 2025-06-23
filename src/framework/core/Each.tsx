@@ -1,11 +1,11 @@
 import { RxNode } from 'framework/types';
-import { Observable } from 'rxjs';
+import { isObservable, Observable, of } from 'rxjs';
 
 // Type definitions (can be in a shared types file)
 type RenderFn<T> = (item: T, index: number) => RxNode;
 
 interface EachProps<T> {
-  items$: Observable<T[]>;
+  items$: Observable<T[]> | T[];
   children: RenderFn<T> | [RenderFn<T>];
   fallback?: RxNode;
   keyFn: (item: T, index: number) => string | number; // Key is now mandatory for <Each>
@@ -20,7 +20,7 @@ export function Each<T>(props: EachProps<T>) {
 
   return {
     _isKeyedList: true,
-    items$,
+    items$: isObservable(items$) ? items$ : of(items$),
     keyFn,
     renderFn,
     fallback,
