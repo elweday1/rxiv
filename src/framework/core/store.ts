@@ -1,5 +1,5 @@
 import { Observable, Subject, merge } from 'rxjs';
-import { map, scan, startWith } from 'rxjs/operators';
+import { map, scan, startWith, tap } from 'rxjs/operators';
 import { reactive } from './reactive';
 import { DeepUnwrapped } from '../types';
 
@@ -15,7 +15,7 @@ type ExtractActionPayload<T extends (state: any, payload?: any) => any> = Parame
 export function store<
 TState extends object,
 TActions extends Record<string, (state: TState, payload?: any) => Partial<TState> | void>,
-TReturnedActions = {[K in keyof TActions]: ExtractActionPayload<TActions[K]>}
+TReturnedActions = {[K in keyof TActions]: (payload: ExtractActionPayload<TActions[K]>) => Partial<TState>}
 >(
   initialState: TState,
   actionsObj: TActions,

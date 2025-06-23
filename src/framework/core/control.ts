@@ -1,4 +1,4 @@
-import { BehaviorSubject, Subject } from 'rxjs';
+import { BehaviorSubject, merge, Observable, of, Subject, withLatestFrom } from 'rxjs';
 
 /**
  * Defines the contract for how a control reads/writes a value from/to a DOM element.
@@ -15,7 +15,7 @@ export type EventsDef = Readonly<(keyof HTMLElementEventMap)[]>;
 
 /** A Mapped Type that creates a correctly typed object of event Subjects. */
 export type EventSubjects<E extends EventsDef> = {
-  [K in E[number] as `${string & K}$`]: Subject<HTMLElementEventMap[K]>;
+  [K in E[number]as `${string & K}$`]: Subject<HTMLElementEventMap[K]>;
 };
 /** The base interface that all controls share. */
 export interface BaseControl {
@@ -88,7 +88,7 @@ export function control(): BaseControl;
  * The overloads above provide the strict type safety.
  */
 export function control(config: ControlConfig<any, any> = {}): any {
-  
+
   const control: BaseControl & Partial<ValuePart<any> & EventsPart<any>> = {
     _isControl: true,
     element$: new BehaviorSubject<HTMLElement | null>(null),
@@ -109,4 +109,92 @@ export function control(config: ControlConfig<any, any> = {}): any {
   }
 
   return control;
+}
+
+type Observed<T> = T extends Observable<infer U> ? U : T;
+
+type ControlFactory = () => { element$: any, value$?: any, events?: any };
+type ValueType<T extends ControlFactory> = ReturnType<T> extends { value$: BehaviorSubject<infer V> } ? V : never;
+type EventsType<T extends ControlFactory> = ReturnType<T> extends { events: infer E } ? E : never;
+type EventStream<T> = Observable<{ key: string; event: T }>;
+type EventsProxy<T extends ControlFactory> = { [K in keyof EventsType<T>]: EventStream<Observed<EventsType<T>[K]>> };
+
+// --- Overloaded Function Signatures ---
+// Overload 1: For controls with both value and events
+export function multiControl<TFactory extends ControlFactory>(
+  controlFactory: TFactory
+): {
+  at: (key: string) => ReturnType<TFactory>;
+  values$: Observable<{ key: string; value: ValueType<TFactory> }>;
+  events: EventsProxy<TFactory>;
+  getControls: () => Map<string, ReturnType<TFactory>>;
+};
+
+// Overload 2: For controls with only a value
+export function multiControl<TFactory extends ControlFactory>(
+  controlFactory: TFactory
+): TFactory extends () => { value$: any } ? {
+  at: (key: string) => ReturnType<TFactory>;
+  values$: Observable<{ key: string; value: ValueType<TFactory> }>;
+  getControls: () => Map<string, ReturnType<TFactory>>;
+} : never;
+
+// Overload 3: For controls with only events
+export function multiControl<TFactory extends ControlFactory>(
+  controlFactory: TFactory
+): TFactory extends () => { events: any } ? {
+  at: (key: string) => ReturnType<TFactory>;
+  events: EventsProxy<TFactory>;
+  getControls: () => Map<string, ReturnType<TFactory>>;
+} : never;
+
+export function multiControl<TFactory extends ControlFactory>(
+  controlFactory: TFactory
+): any {
+  const controls = new Map<string, ReturnType<TFactory>>();
+  const valuesSubject$ = new Subject<any>();
+  const eventSubjects = new Map<string, Subject<any>>();
+
+  const at = (key: string): ReturnType<TFactory> => {
+    if (controls.has(key)) {
+      return controls.get(key)!;
+    }
+    const newControl = controlFactory();
+    controls.set(key, newControl as any);
+
+    if ('value$' in newControl) {
+      (newControl.value$ as BehaviorSubject<any>).subscribe(value => {
+        valuesSubject$.next({ key, value });
+      });
+    }
+
+    if ('events' in newControl) {
+      for (const eventName in newControl.events) {
+        if (!eventSubjects.has(eventName)) {
+          eventSubjects.set(eventName, new Subject());
+        }
+        const masterSubject = eventSubjects.get(eventName)!;
+        (newControl.events as any)[eventName].subscribe((event: any) => {
+          masterSubject.next({ key, event });
+        });
+      }
+    }
+    return newControl as any;
+  };
+
+  const eventsProxy = new Proxy({}, {
+    get(_, prop: string) {
+      if (!eventSubjects.has(prop)) {
+        eventSubjects.set(prop, new Subject());
+      }
+      return eventSubjects.get(prop)!.asObservable();
+    }
+  });
+
+  return {
+    at,
+    events: eventsProxy,
+    values$: valuesSubject$.asObservable(),
+    getControls: () => controls,
+  };
 }
